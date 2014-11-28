@@ -1,3 +1,5 @@
 name: Selfie Machine
-description: Awesome selfie machine 
+description: Invite all members to take a selfie right away!
+icon: person4
+store: 400
 api: 2

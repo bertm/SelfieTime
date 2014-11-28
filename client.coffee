@@ -14,121 +14,106 @@ Social = require 'social'
 {tr} = require 'i18n'
 
 exports.renderSettings = !->
+	return if Db.shared
 	Dom.div !->
 		Dom.style Box: "inline middle"
 		Dom.div !->
-			Dom.text tr("Selfies per day: ")
-		renderCountInput()
+			Dom.text tr("Selfie deadline:")
+		renderCountInput name: 'deadline'
+		Dom.div !->
+			Dom.text tr("minutes")
 
 exports.render = ->
-	if Page.state.get(0) and Page.state.get(1)
-		renderPhoto Page.state.get(0), Page.state.get(1)
+	if Page.state.get(0)
+		renderPhoto Page.state.get(0)
 		return
 	
 	Dom.div !->
-		Dom.style padding: '16px 0', textAlign: 'center', fontSize: '200%'
-		Dom.text "The Selfie Machine"
+		Dom.style backgroundColor: '#fff', margin: '-4px -8px', padding: '8px', borderBottom: '2px solid #ccc'
 
-	left = Obs.create(0)
-	Dom.section !->
-		if Db.shared.get('sessions', Db.shared.get('sessionId'), 'open')
-			Dom.style display: 'none'
-			return
-		Dom.style display: 'block'
-
-		l = left.get()
-		if !l
-			Dom.text tr("By starting a new round, all members of this Happening will be asked to make a selfie within 5 minutes!")
-			Ui.bigButton tr("New selfie round"), !-> left.set 4
-			return
-		Dom.style
-			display: 'block'
-			fontSize: '120%'
-			textAlign: 'center'
-		Dom.text tr("%1s...", l)
-		Ui.button tr("Cancel"), !-> left.set 0
-		Obs.onTime 1000, !->
-			if not left.incr(-1)
-				Server.call 'start'
-
-	Db.shared.iterate 'sessions', (session) !->
-		Dom.section !->
-			open = session.get('open')
-			if open
-				Dom.h2 !->
-					Dom.text tr("Ongoing selfie round")
-					Dom.text " • "
-					Time.deltaText session.get('open'), 'countdown'
-				Dom.style background: '#fff9b7'
-
-			else
-				Dom.h2 !->
-					Dom.text "Selfie round "
-					Time.deltaText session.get('time')
-				Dom.style background: ''
-
+		Dom.div !->
+			Dom.style textAlign: 'center', padding: '16px 0'
 			Dom.div !->
-				session.iterate 'selfies', (selfie) !->
-					Dom.div !->
-						Dom.style
-							display: 'inline-block'
-							margin: '4px'
-							width: '150px'
-							height: '150px'
-							background: "url(#{Photo.url selfie.get('key'), 200}) 50% 50% no-repeat"
-							backgroundSize: 'cover'
-							position: 'relative'
+				Dom.style fontSize: '180%'
+				Dom.text tr("The Selfie Machine")
+			Dom.div !->
+				open = Db.shared.get('open')
+				has = !!Db.shared.get('selfies', Plugin.userId())
+				if !has and !open
+					Dom.text tr("You're too late, deadline passed!")
+				else if !open
+					Dom.text tr("Showing results")
+				else if open and has
+					Dom.text tr("Waiting for others: ")
+					Time.deltaText open, 'countdown'
 
-						Ui.avatar Plugin.userAvatar(selfie.get('userId')), !->
-							Dom.style position: 'absolute', bottom: '4px', right: '4px', margin: 0
+		Obs.observe !->
+			open = Db.shared.get('open')
+			if open and !Db.shared.get('selfies', Plugin.userId())
+				Dom.div !->
+					Dom.style padding: '0 8px'
+					Ui.bigButton !->
+						Dom.div !->
+							Dom.style fontSize: '180%', textAlign: 'center', padding: '4px'
+							Time.deltaText open, 'countdown'
+						Dom.text tr("Take selfie!")
+					, !->
+						Photo.pick()
 
-						if +selfie.key() is Plugin.userId()
-							Ui.button !->
-								Dom.style position: 'absolute', left: '4px', bottom: '4px'
-								Dom.text tr("Change")
-							, !->
-								Photo.pick()
-						Dom.onTap !->
-							Page.nav [session.key(), selfie.key()]
+		Dom.style padding: '2px'
+		boxSize = Obs.create()
+		Obs.observe !->
+			width = Dom.viewport.get('width')
+			cnt = (0|(width / 140)) || 1
+			boxSize.set(0|(width-((cnt+1)*4))/cnt)
 
-			empty = session.empty('selfies')
-			Obs.observe !->
-				return if not empty.get()
+		if title = Plugin.title()
+			Dom.h2 !->
+				Dom.style margin: '6px 2px'
+				Dom.text title
+
+		Db.shared.iterate 'selfies', (photo) !->
+			Dom.div !->
+				Dom.style
+					display: 'inline-block'
+					margin: '2px'
+					width: boxSize.get() + 'px'
+				Dom.div !->
+					Dom.style
+						display: 'inline-block'
+						height: boxSize.get() + 'px'
+						width: boxSize.get() + 'px'
+						background: "url(#{Photo.url photo.get('key'), 200}) 50% 50% no-repeat"
+						backgroundSize: 'cover'
+						position: 'relative'
+
+					Ui.avatar Plugin.userAvatar(photo.key()), !->
+						Dom.style position: 'absolute', bottom: '4px', right: '4px', margin: 0
+
+					if +photo.key() is Plugin.userId()
+						Ui.button !->
+							Dom.style position: 'absolute', left: '4px', bottom: '4px'
+							Dom.text tr("Change")
+						, !->
+							Photo.pick()
+					Dom.onTap !->
+						Page.nav [photo.key()]
+
+
+		Obs.observe !->
+			if !Db.shared.get('open') and Db.shared.empty('selfies').get()
 				Dom.div !->
 					Dom.style padding: '8px 0'
 					Dom.text tr("No selfies submitted in this round")
 
-			Obs.observe !->
-				if open and !session.get('selfies', Plugin.userId())
-					Ui.bigButton !->
-						Dom.div !->
-							Dom.style fontSize: '180%', textAlign: 'center', padding: '4px'
-							Time.deltaText session.get('open'), 'countdown'
-						Dom.text tr("Make selfie!")
-					, !->
-						Photo.pick()
+	Dom.div !->
+		Dom.style margin: '0 -8px'
+		Social.renderComments()
 
-			Obs.observe !->
-				showComments = Page.state.get('showComments', session.key())
-				showComments ?= +session.key() == Db.shared.get('sessionId')
-				if showComments
-					Dom.div !->
-						Dom.style
-							background: '#fff'
-							borderRadius: '6px'
-							border: 'solid 1px #aaa'
-						Social.renderComments session.key()
-				else
-					Dom.div !->
-						Dom.style textAlign: 'center'
-						Ui.button tr("Show comments"), !->
-							Page.state.set 'showComments', session.key(), true
 
-	, (session) -> -session.key()
-
-renderPhoto = (sessionId, userId) !->
+renderPhoto = (userId) !->
 	Dom.style padding: 0
-	photo = Db.shared.ref 'sessions', sessionId, 'selfies', userId
+	photo = Db.shared.ref 'selfies', userId
 
 	byUserId = photo.get('userId')
 
@@ -162,10 +147,10 @@ renderPhoto = (sessionId, userId) !->
 				Dom.text tr("Added by %1", Plugin.userName(byUserId))
 
 
-renderCountInput = (opts={}) !->
+renderCountInput = (opts) !->
 
 	[handleChange,orgValue] = Form.makeInput opts
-	count = Obs.create orgValue ? 2
+	count = Obs.create orgValue ? 5
 	Obs.observe !->
 		handleChange count.get()
 
