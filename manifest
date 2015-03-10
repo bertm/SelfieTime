@@ -1,5 +1,5 @@
-name: Selfie Machine
-description: Invite all members to take a selfie right away!
+name: Selfie time
+description: What's everybody doing right now? Selfies please!
 icon: person4
-store: 400
+store: 600
 api: 2
