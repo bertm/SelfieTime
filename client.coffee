@@ -39,7 +39,7 @@ exports.render = ->
 
 renderNew = !->
 	Dom.section !->
-		Dom.h3 tr "Start self time"
+		Dom.h3 tr "Start selfie time"
 		Dom.div !->
 			Dom.style Box: 'middle'
 			inpE = null
@@ -96,8 +96,8 @@ renderList = !->
 					Dom.text selfieTitle(round)
 					Dom.div !->
 						Dom.style color: '#aaa', fontSize: '75%'
-						Event.renderBubble [num]
 						Time.deltaText round.get('time')
+
 				for k, v of round.get('selfies')
 					Dom.div !->
 						Dom.style
@@ -109,6 +109,9 @@ renderList = !->
 							background: "url(#{Photo.url v.key, 100}) 50% 50% no-repeat"
 							backgroundSize: 'cover'
 							borderRadius: '2px'
+				Event.renderBubble [num], style:
+					margin: '4px 0 0 12px'
+
 				Dom.div !->
 					Dom.style clear: 'both'
 				Dom.onTap !->
@@ -150,7 +153,7 @@ renderRound = (roundId, preview) !->
 	empty = round.empty('selfies').get()
 
 	Dom.div !->
-		Dom.style textAlign: 'center', backgroundColor: '#fff', margin: '-8px -8px 8px -8px', padding: '8px', borderBottom: '2px solid #ccc'
+		Dom.style textAlign: 'center', backgroundColor: '#fff', margin: '-8px -8px 8px -8px', padding: '4px 0', borderBottom: '2px solid #ccc'
 
 		Dom.div !->
 			Dom.style fontSize: '180%'
@@ -206,6 +209,7 @@ renderRound = (roundId, preview) !->
 			round.observeEach 'selfies', (selfie) !->
 				Ui.avatar Plugin.userAvatar(selfie.key()),
 					style: display: 'inline-block', verticalAlign: 'middle', marginBottom: '4px'
+			Event.renderBubble [round.key()]
 			return
 		if empty
 			Ui.emptyText tr "No selfies submitted. Booh!"
@@ -216,13 +220,12 @@ renderRound = (roundId, preview) !->
 				Dom.style marginTop: '12px'
 				renderSelfies roundId, open, true
 			
-
+		if !preview and !empty
+			renderSelfies roundId, open
+	
 	if preview
 		return
 
-	if !empty
-		renderSelfies roundId, open
-	
 	Dom.div !->
 		Dom.style margin: '12px -8px 0 -8px'
 		Social.renderComments

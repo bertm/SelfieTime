@@ -4,10 +4,10 @@ Db = require 'db'
 Event = require 'event'
 
 exports.onUpgrade = !->
-	if (open = Db.shared.get(1, 'open'))
-		time = 0|(Date.now()*.001)
-		if open < time
-			Db.shared.remove 1, 'open'
+	#if (open = Db.shared.get(1, 'open'))
+	#	time = 0|(Date.now()*.001)
+	#	if open < time
+	#		Db.shared.remove 1, 'open'
 
 	# fix non-initialized selfie-time plugins
 	#if !Db.shared.get('maxId')? and !Db.shared.get('repeat')? and !Db.shared.get('deadline')?
