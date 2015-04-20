@@ -4,6 +4,10 @@ Db = require 'db'
 Event = require 'event'
 
 exports.onUpgrade = !->
+	# no next, but repeat is set? schedule new round..
+	#if !Db.shared.get('next')? and (repeat = Db.shared.get('repeat'))>0
+	#	scheduleNewRound repeat
+
 	#if (open = Db.shared.get(1, 'open'))
 	#	time = 0|(Date.now()*.001)
 	#	if open < time
@@ -69,7 +73,8 @@ exports.onInstall = exports.onConfig = (_config) !->
 	if newRepeat is 0
 		log 'repeat never, cancelling newRound timer'
 		Timer.cancel 'newRound'
-	else if oldRepeat > newRepeat or oldRepeat is 0
+	else if !oldRepeat? or oldRepeat > newRepeat or oldRepeat is 0
+		# this also schedules a new round when added through a template
 		scheduleNewRound newRepeat
 
 	if !Db.shared.get('maxId') and _config
@@ -103,7 +108,10 @@ exports.client_newRound = exports.newRound = newRound = (title) !->
 		time: time+open
 		open: time+open
 		selfies: {}
-	roundObj.title = title if title
+	if title
+		roundObj.title = title
+		roundObj.by = Plugin.userId()
+
 	Db.shared.set maxId, roundObj
 
 	Timer.cancel()
@@ -141,4 +149,5 @@ exports.onPhoto = (info) !->
 	Event.create
 		unit: 'selfie'
 		text: "Selfie by #{Plugin.userName()}"
+		sender: Plugin.userId()
 

@@ -92,7 +92,7 @@ renderList = !->
 						float: 'left'
 						textAlign: 'left'
 						paddingBottom: '8px'
-					Event.styleNew round.get('time'), num
+					Event.styleNew round.get('time'), [num]
 					Dom.text selfieTitle(round)
 					Dom.div !->
 						Dom.style color: '#aaa', fontSize: '75%'
@@ -134,7 +134,7 @@ renderList = !->
 boxSize = Obs.create()
 Obs.observe !->
 	width = Dom.viewport.get('width')
-	cnt = (0|(width / 140)) || 1
+	cnt = (0|(width / 150)) || 1
 	boxSize.set(0|(width-((cnt+1)*4))/cnt)
 
 
@@ -200,6 +200,7 @@ renderRound = (roundId, preview) !->
 						Dom.style fontSize: '180%', textAlign: 'center', padding: '4px'
 						Dom.text tr("Take a selfie")
 				, !->
+					Event.subscribe [roundId]
 					Photo.pick 'camera'
 						# subscribe to both the plugin and this round!
 			if empty
@@ -219,9 +220,12 @@ renderRound = (roundId, preview) !->
 			Dom.div !->
 				Dom.style marginTop: '12px'
 				renderSelfies roundId, open, true
+				Event.renderBubble [round.key()]
 			
 		if !preview and !empty
-			renderSelfies roundId, open
+			Dom.div !->
+				Dom.style marginTop: '12px'
+				renderSelfies roundId, open
 	
 	if preview
 		return
@@ -240,6 +244,7 @@ renderSelfies = (roundId,open,preview) !->
 			size = if preview then 30 else boxSize.get()
 			Dom.style
 				display: 'inline-block'
+				verticalAlign: 'middle'
 				margin: '2px'
 				width: size + 'px'
 			Dom.div !->
@@ -247,24 +252,53 @@ renderSelfies = (roundId,open,preview) !->
 					display: 'inline-block'
 					height: size + 'px'
 					width: size + 'px'
+					borderRadius: if preview then '2px' else '5px'
 					background: "url(#{Photo.url photo.get('key'), 200}) 50% 50% no-repeat"
 					backgroundSize: 'cover'
 					position: 'relative'
 
 				if !preview
-					Ui.avatar Plugin.userAvatar(photo.key()),
-						style: position: 'absolute', bottom: '4px', right: '4px', margin: 0
-
-					if open and +photo.key() is Plugin.userId()
-						Ui.button !->
-							Dom.style position: 'absolute', left: '4px', bottom: '4px'
-							Dom.text tr("Change")
-						, !->
-							Photo.pick 'camera'
 					Dom.div !->
 						Dom.style width: '100%', height: '100%'
 						Dom.onTap !->
 							Page.nav [roundId, photo.key()]
+
+					Dom.div !->
+						Dom.style
+							position: 'absolute'
+							bottom: 0
+							left: 0
+							right: 0
+							Box: 'bottom'
+							textAlign: 'left'
+							padding: '24px 6px 6px 6px'
+							color: 'white'
+							background_: 'linear-gradient(top, rgba(0, 0, 0, 0) 0px, rgba(0, 0, 0, 0.6) 100%)'
+							borderRadius: '0 0 5px 5px'
+							pointerEvents: 'none'
+
+						Dom.div !->
+							Dom.style fontSize: '70%', marginBottom: '2px', fontWeight: 'bold', whiteSpace: 'nowrap', pointerEvents: 'auto', Flex: 1
+							Social.renderLike
+								path: [roundId]
+								id: 'p'+photo.key()
+								userId: photo.get('userId')
+								noExpand: true
+								aboutWhat: tr("selfie")
+								color: '#fff'
+
+						Ui.avatar Plugin.userAvatar(photo.get('userId')),
+							size: 28
+							style: margin: 0, backgroundColor: 'white', pointerEvents: 'auto'
+							onTap: !-> Plugin.userInfo(photo.get('userId'))
+
+					if open and +photo.key() is Plugin.userId()
+						Ui.button !->
+							Dom.style position: 'absolute', left: '4px', top: '4px'
+							Dom.text tr("Change")
+						, !->
+							Photo.pick 'camera'
+
 
 
 	
@@ -373,10 +407,9 @@ exports.renderSettings = !->
 					Dom.div !->
 						Dom.style
 							maxHeight: '45.5%'
-							overflow: 'auto'
-							_overflowScrolling: 'touch'
 							backgroundColor: '#eee'
 							margin: '-12px'
+						Dom.overflow()
 						for rep in opts then do (rep) !->
 							Ui.item !->
 								Dom.text getRepeatText(rep)
