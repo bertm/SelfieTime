@@ -3,6 +3,9 @@ Plugin = require 'plugin'
 Db = require 'db'
 Event = require 'event'
 
+exports.getTitle = ->
+	Db.shared.get 'title'
+
 exports.onUpgrade = !->
 	# no next, but repeat is set? schedule new round..
 	#if !Db.shared.get('next')? and (repeat = Db.shared.get('repeat'))>0

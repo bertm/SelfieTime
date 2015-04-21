@@ -23,7 +23,6 @@ exports.render = ->
 			renderPhoto roundId, userId
 			return
 
-		Event.showStar tr("this selfie round")
 		renderRound roundId
 		return
 
@@ -58,6 +57,7 @@ renderNew = !->
 				, !->
 					if newTitle
 						newTitle = newTitle[0].toUpperCase() + newTitle.substr(1)
+					Event.subscribe [(Db.shared.get('maxId')||0)+1]
 					Server.call 'newRound', newTitle
 					inpE.value ''
 		#if next = Db.shared.get('next')
@@ -92,7 +92,7 @@ renderList = !->
 						float: 'left'
 						textAlign: 'left'
 						paddingBottom: '8px'
-					Event.styleNew round.get('time'), [num]
+					Event.styleNew round.get('time')
 					Dom.text selfieTitle(round)
 					Dom.div !->
 						Dom.style color: '#aaa', fontSize: '75%'
@@ -143,6 +143,8 @@ selfieTitle = (round) ->
 
 
 renderRound = (roundId, preview) !->
+	Page.setTitle tr("Selfie round")
+
 	round = Db.shared.ref(roundId)
 	if !round.isHash()
 		Ui.emptyText tr("No such round")
@@ -151,6 +153,7 @@ renderRound = (roundId, preview) !->
 	open = round.get('open')
 	meDone = !!round.get('selfies', Plugin.userId())
 	empty = round.empty('selfies').get()
+	dummy = round.get('selfies') # the empty above doesn't appear to trigger a redraw on change (should it?) --Jelmer
 
 	Dom.div !->
 		Dom.style textAlign: 'center', backgroundColor: '#fff', margin: '-8px -8px 8px -8px', padding: '4px 0', borderBottom: '2px solid #ccc'
@@ -174,6 +177,7 @@ renderRound = (roundId, preview) !->
 		meUploading = Photo.uploads.count().get()
 
 		if open && !meDone
+			# open round and user should still submit a selfie
 			if meUploading
 				Photo.uploads.observeEach (upload) !->
 					Dom.div !->
@@ -192,49 +196,57 @@ renderRound = (roundId, preview) !->
 						Ui.spinner 24, !->
 							Dom.style margin: '5px'
 						, 'spin-light.png'
-				return
-			Dom.div !->
-				Dom.style padding: '0 8px'
-				Ui.bigButton !->
-					Dom.div !->
-						Dom.style fontSize: '180%', textAlign: 'center', padding: '4px'
-						Dom.text tr("Take a selfie")
-				, !->
-					Event.subscribe [roundId]
-					Photo.pick 'camera'
-						# subscribe to both the plugin and this round!
-			if empty
-				Ui.emptyText tr "Be the first!"
-				return
-			Ui.emptyText tr "Take one yourself to see selfies by:"
-			round.observeEach 'selfies', (selfie) !->
-				Ui.avatar Plugin.userAvatar(selfie.key()),
-					style: display: 'inline-block', verticalAlign: 'middle', marginBottom: '4px'
-			Event.renderBubble [round.key()]
-			return
-		if empty
+			else
+				Dom.div !->
+					Dom.style padding: '0 8px'
+					Ui.bigButton !->
+						Dom.div !->
+							Dom.style fontSize: '180%', textAlign: 'center', padding: '4px'
+							Dom.text tr("Take a selfie")
+					, !->
+						Event.subscribe [roundId]
+						Photo.pick 'camera'
+							# subscribe to both the plugin and this round!
+				if empty
+					Ui.emptyText tr "Be the first!"
+				else
+					Ui.emptyText tr "Take one yourself to see selfies by:"
+					round.observeEach 'selfies', (selfie) !->
+						Ui.avatar Plugin.userAvatar(selfie.key()),
+							style: display: 'inline-block', verticalAlign: 'middle', marginBottom: '4px'
+							onTap: !-> Plugin.userInfo(selfie.get('userId'))
+					Event.renderBubble [round.key()]
+
+		else if !open and empty
 			Ui.emptyText tr "No selfies submitted. Booh!"
 
-		if preview and meDone
+		if open and meDone and preview and !empty
 			Dom.onTap !-> Page.nav [roundId]
 			Dom.div !->
 				Dom.style marginTop: '12px'
-				renderSelfies roundId, open, true
+				renderSelfies roundId, open, true # preview thumbs
 				Event.renderBubble [round.key()]
-			
-		if !preview and !empty
+
+		else if !preview and !empty
 			Dom.div !->
 				Dom.style marginTop: '12px'
 				renderSelfies roundId, open
-	
-	if preview
-		return
 
-	Dom.div !->
-		Dom.style margin: '12px -8px 0 -8px'
-		Social.renderComments
-			path: [roundId]
-			key: 'r'+roundId # backwards compatibility
+		if byUserId = round.get('by')
+			Dom.div !->
+				Dom.style
+					fontSize: '70%'
+					color: '#aaa'
+					padding: '16px 0 0'
+				Dom.text tr("Round started by %1", Plugin.userName(byUserId))
+
+	if !preview
+		Event.showStar tr("this selfie round")
+		Dom.div !->
+			Dom.style margin: '12px -8px 0 -8px'
+			Social.renderComments
+				path: [roundId]
+				key: 'r'+roundId # backwards compatibility
 
 
 
@@ -377,8 +389,15 @@ renderCountInput = (opts) !->
 
 exports.renderSettings = !->
 	Dom.div !->
-		Dom.style margin: '0 -8px 0 -8px'
+		Dom.style margin: '-8px -8px 0 -8px'
 
+		Form.box !->
+			Form.input
+				name: 'title'
+				text: tr("Optional theme")
+				value: Db.shared.func('title') if Db.shared
+
+		Form.sep()
 		Form.box !->
 			repeat = Db.shared?.get('repeat') ? 3
 
