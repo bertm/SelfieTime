@@ -38,7 +38,7 @@ exports.render = ->
 
 renderNew = !->
 	Dom.section !->
-		Dom.h3 tr "Start selfie time"
+		Dom.h3 tr "Start Selfie Time"
 		Dom.div !->
 			Dom.style Box: 'middle'
 			inpE = null
@@ -139,7 +139,7 @@ Obs.observe !->
 
 
 selfieTitle = (round) ->
-	round.get('title') || Plugin.title() || tr("Selfie time!")
+	round.get('title') || Db.shared.get('title') || Plugin.title() || tr("Selfie Time!")
 
 
 renderRound = (roundId, preview) !->
@@ -411,7 +411,7 @@ exports.renderSettings = !->
 				else
 					tr("Every %1 days", r)
 
-			Dom.text tr("Automatic selfie time")
+			Dom.text tr("Automatic Selfie Time")
 			[handleChange] = Form.makeInput
 				name: 'repeat'
 				value: repeat
@@ -420,7 +420,7 @@ exports.renderSettings = !->
 						Dom.text getRepeatText(value)
 
 			Dom.onTap !->
-				Modal.show tr("Automatic selfie time"), !->
+				Modal.show tr("Automatic Selfie Time"), !->
 					Dom.style width: '60%'
 					opts = [1, 3, 7, 0]
 					Dom.div !->

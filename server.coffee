@@ -67,6 +67,9 @@ oldUpgrade = !->
 exports.onInstall = exports.onConfig = (_config) !->
 	config = _config || {}
 
+	if title = config.title
+		Db.shared.set 'title', config.title
+
 	# write default deadline and repetition freq
 	Db.shared.set 'deadline', (Math.min(480, config.deadline||120))
 		# max 8 hour deadline (don't interfere with daily repeat setting)
@@ -101,6 +104,9 @@ exports.client_newRound = exports.newRound = newRound = (title) !->
 	maxId = Db.shared.incr 'maxId'
 	if maxId>1
 		Db.shared.remove maxId-1, 'open'
+
+	if !title
+		title = Db.shared.get 'title' # default title set?
 
 	log 'newRound', maxId
 
