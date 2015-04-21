@@ -391,11 +391,11 @@ exports.renderSettings = !->
 	Dom.div !->
 		Dom.style margin: '-8px -8px 0 -8px'
 
-		Form.box !->
-			Form.input
-				name: 'title'
-				text: tr("Optional theme")
-				value: Db.shared.func('title') if Db.shared
+		if !Db.shared
+			Form.box !->
+				Form.input
+					name: '_title'
+					text: tr("Optional theme")
 
 		Form.sep()
 		Form.box !->
