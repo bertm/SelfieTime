@@ -320,10 +320,35 @@ renderPhoto = (roundId, userId) !->
 		Ui.emptyText tr("No such photo")
 		return
 	byUserId = photo.get('userId')
+	opts = []
 	if byUserId is Plugin.userId()
 		Page.setTitle tr("Your selfie")
+
+		if Photo.share
+			opts.push
+				label: tr('Share')
+				icon: 'share'
+				action: !-> Photo.share photo.peek('key')
+		if Photo.download
+			opts.push
+				label: tr('Download')
+				icon: 'boxdown'
+				action: !-> Photo.download photo.peek('key')
+
 	else
 		Page.setTitle tr("Selfie by %1", Plugin.userName(byUserId))
+
+	if byUserId is Plugin.userId() or Plugin.userIsAdmin()
+		opts.push
+			label: tr('Remove')
+			icon: 'trash'
+			action: !->
+				Modal.confirm null, tr("Remove photo?"), !->
+					Server.sync 'remove', roundId, userId, !->
+						Db.shared.remove(roundId, 'selfies', userId)
+					Page.back()
+
+	Page.setActions opts
 
 	Dom.style padding: 0
 	require('photoview').render

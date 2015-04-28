@@ -1,7 +1,8 @@
-Timer = require 'timer'
-Plugin = require 'plugin'
 Db = require 'db'
 Event = require 'event'
+Photo = require 'photo'
+Plugin = require 'plugin'
+Timer = require 'timer'
 
 exports.getTitle = -> # we're asking for _title in renderSettings
 
@@ -152,4 +153,10 @@ exports.onPhoto = (info) !->
 		unit: 'selfie'
 		text: "Selfie by #{Plugin.userName()}"
 		sender: Plugin.userId()
+
+exports.client_remove = (roundId, userId) !->
+	return if userId != Plugin.userId() and !Plugin.userIsAdmin()
+
+	Photo.remove(key) if key = Db.shared.get(roundId, 'selfies', userId, 'key')
+	Db.shared.remove(roundId, 'selfies', userId)
 
