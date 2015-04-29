@@ -156,7 +156,8 @@ renderRound = (roundId, preview) !->
 	dummy = round.get('selfies') # the empty above doesn't appear to trigger a redraw on change (should it?) --Jelmer
 
 	Dom.div !->
-		Dom.style textAlign: 'center', backgroundColor: '#fff', margin: '-8px -8px 8px -8px', padding: '4px 0', borderBottom: '2px solid #ccc'
+		Dom.style textAlign: 'center', margin: '-8px -8px 8px -8px', padding: '4px 0', borderBottom: '2px solid #ccc'
+		Dom.cls 'currentRnd'
 
 		Dom.div !->
 			Dom.style fontSize: '180%'
@@ -485,3 +486,10 @@ exports.renderSettings = !->
 				value: Db.shared?.get('deadline')||120
 			Dom.div !->
 				Dom.text tr("minutes")
+
+
+Dom.css
+	'.currentRnd':
+		backgroundColor: '#fff'
+	'.currentRnd.tap':
+		backgroundColor: '#eee'
