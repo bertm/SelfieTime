@@ -81,7 +81,7 @@ exports.onInstall = exports.onConfig = (_config) !->
 		scheduleNewRound newRepeat
 
 	if !Db.shared.get('maxId') and _config
-		newRound() # initial round
+		newRound() # initial round fir manual group app addition
 
 scheduleNewRound = (repeat) !->
 	return if !repeat
@@ -147,7 +147,8 @@ exports.close = !->
 
 exports.onPhoto = (info) !->
 	log 'got photo', JSON.stringify(info), Plugin.userId()
-	round = Db.shared.ref (Db.shared.get 'maxId')
+	maxId = Db.shared.get 'maxId'
+	round = Db.shared.ref maxId
 	round.set 'selfies', Plugin.userId(), info
 	Event.create
 		unit: 'selfie'
