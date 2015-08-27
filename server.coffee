@@ -86,7 +86,7 @@ exports.onInstall = exports.onConfig = (_config) !->
 scheduleNewRound = (repeat) !->
 	return if !repeat
 
-	dayStart = (Math.floor(Plugin.time()/86400) + repeat) * 86400
+	dayStart = (Math.floor(Plugin.time()/86400) + repeat) * 86400 + ((new Date).getTimezoneOffset() * 60)
 	Timer.cancel 'newRound'
 	t = 0|(dayStart + (10*3600) + Math.floor(Math.random()*(12*3600)))
 	Db.shared.set 'next', t
@@ -122,11 +122,20 @@ exports.client_newRound = exports.newRound = newRound = (title) !->
 	Timer.set open*1000, 'close'
 		# notice how 'open' is *not* an absolute time! (contrary to what's in the data model)
 
+	Event.create
+		text: "Selfie deadline in #{open/60} minutes!"
+		sender: Plugin.userId()
+
+	# no new round when this is automatic, and the last two had no submissions...
+	if !title? and maxId>2
+		r1 = Object.keys(Db.shared.get(maxId-1, 'selfies')).length
+		r2 = Object.keys(Db.shared.get(maxId-2, 'selfies')).length
+		if !r1 and !r2
+			Db.shared.set 'next', 1 # shows selfie time auto-paused
+			return
+
 	scheduleNewRound (Db.shared.get('repeat') ? 3)
 
-	Event.create
-		unit: 'xxx'
-		text: "Selfie deadline in #{open/60} minutes!"
 
 exports.check = !->
 	round = Db.shared.ref (Db.shared.get 'maxId')
@@ -151,7 +160,6 @@ exports.onPhoto = (info) !->
 	round = Db.shared.ref maxId
 	round.set 'selfies', Plugin.userId(), info
 	Event.create
-		unit: 'selfie'
 		text: "Selfie by #{Plugin.userName()}"
 		sender: Plugin.userId()
 

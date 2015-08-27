@@ -51,15 +51,25 @@ renderNew = !->
 				newTitle = inpE.value().trim()
 				Modal.confirm tr("Start a new round?"), !->
 					if newTitle
-						Dom.text tr("All members will be asked to submit a “%1”-themed selfie.", newTitle)
+						Dom.text tr("All members will be asked to submit a “%1”-themed selfie", newTitle)
 					else
-						Dom.text tr("All members will be asked to submit a selfie.")
+						Dom.text tr("All members will be asked to submit a selfie")
 				, !->
 					if newTitle
 						newTitle = newTitle[0].toUpperCase() + newTitle.substr(1)
 					Event.subscribe [(Db.shared.get('maxId')||0)+1]
 					Server.call 'newRound', newTitle
 					inpE.value ''
+		if Db.shared.get('next') is 1
+			Dom.div !->
+				Dom.style
+					backgroundColor: '#ddd'
+					color: '#888'
+					fontWeight: 'bold'
+					fontSize: '85%'
+					borderRadius: '2px'
+					padding: '6px'
+				Dom.text tr("Automatic selfie time on pause, start a new round to resume!")
 		#if next = Db.shared.get('next')
 		#	Dom.div !->
 		#		Dom.style textAlign: 'right', color: '#666'
@@ -154,6 +164,9 @@ renderRound = (roundId, preview) !->
 	meDone = !!round.get('selfies', Plugin.userId())
 	empty = round.empty('selfies').get()
 	dummy = round.get('selfies') # the empty above doesn't appear to trigger a redraw on change (should it?) --Jelmer
+
+	if open
+		Event.markRead [] # new selfies are emitted on top level, we're seeing them here though (so clear 'm)
 
 	Dom.div !->
 		Dom.style textAlign: 'center', margin: '-8px -8px 8px -8px', padding: '4px 0', borderBottom: '2px solid #ccc'
