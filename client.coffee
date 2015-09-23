@@ -19,7 +19,7 @@ Colors = Plugin.colors()
 
 exports.render = ->
 	if roundId = +Page.state.get(0)
-		if userId = +Page.state.get(1)
+		if userId = +Page.state.peek(1)
 			renderPhoto roundId, userId
 			return
 
@@ -90,11 +90,15 @@ renderList = !->
 		lastV.set -(Db.shared.get('maxId')||1)
 
 	Ui.list !->
+		roundsShown = Obs.create 0
 		Loglist.render lastV, firstV, (num) !->
 			num = -num
 			round = Db.shared.ref(num)
 			return if round.get('open')
 
+			roundsShown.incr()
+			Obs.onClean !->
+				roundsShown.incr(-1)
 			Ui.item !->
 				Dom.style Box: false, textAlign: 'right', padding: '8px 8px 0 8px'
 				Dom.div !->
@@ -126,7 +130,9 @@ renderList = !->
 					Dom.style clear: 'both'
 				Dom.onTap !->
 					Page.nav [num]
-
+		Obs.observe !->
+			if roundsShown.get() is 0
+				Ui.emptyText "There are no finished rounds yet"
 	Dom.div !->
 		if firstV.get()==-1
 			Dom.style display: 'none'
@@ -327,60 +333,65 @@ renderSelfies = (roundId,open,preview) !->
 
 
 
-	
+
 renderPhoto = (roundId, userId) !->
 	photo = Db.shared.ref roundId, 'selfies', userId
 	if !photo.isHash()
 		Ui.emptyText tr("No such photo")
 		return
-	byUserId = photo.get('userId')
-	opts = []
-	if byUserId is Plugin.userId()
-		Page.setTitle tr("Your selfie")
-
-		if Photo.share
-			opts.push
-				label: tr('Share')
-				icon: 'share'
-				action: !-> Photo.share photo.peek('key')
-		if Photo.download
-			opts.push
-				label: tr('Download')
-				icon: 'boxdown'
-				action: !-> Photo.download photo.peek('key')
-
-	else
-		Page.setTitle tr("Selfie by %1", Plugin.userName(byUserId))
-
-	if byUserId is Plugin.userId() or Plugin.userIsAdmin()
-		opts.push
-			label: tr('Remove')
-			icon: 'trash'
-			action: !->
-				Modal.confirm null, tr("Remove photo?"), !->
-					Server.sync 'remove', roundId, userId, !->
-						Db.shared.remove(roundId, 'selfies', userId)
-					Page.back()
-
-	Page.setActions opts
 
 	Dom.style padding: 0
 	require('photoview').render
-		key: photo.get('key')
+		current: photo.key()
 		fullHeight: true
-		content: !->
-			Dom.div !->
-				Dom.style
-					position: 'absolute'
-					bottom: '5px'
-					left: '10px'
-					fontSize: '70%'
-					textShadow: '0 1px 0 #000'
-					color: '#fff'
-				if byUserId is Plugin.userId()
-					Dom.text tr("Added by you")
-				else
-					Dom.text tr("Added by %1", Plugin.userName(byUserId))
+		content: (identifier) !->
+			photo = Db.shared.ref roundId, 'selfies', identifier
+			byUserId = photo.get('userId')
+			opts = []
+			if byUserId is Plugin.userId()
+				Page.setTitle tr("Your selfie")
+				if Photo.share
+					opts.push
+						label: tr('Share')
+						icon: 'share'
+						action: !-> Photo.share photo.peek('key')
+				if Photo.download
+					opts.push
+						label: tr('Download')
+						icon: 'boxdown'
+						action: !-> Photo.download photo.peek('key')
+			else
+				Page.setTitle tr("Selfie by %1", Plugin.userName(byUserId))
+
+			if byUserId is Plugin.userId() or Plugin.userIsAdmin()
+				opts.push
+					label: tr('Remove')
+					icon: 'trash'
+					action: !->
+						Modal.confirm null, tr("Remove photo?"), !->
+							Server.sync 'remove', roundId, identifier, !->
+								Db.shared.remove(roundId, 'selfies', identifier)
+							Page.back()
+			Page.setActions opts
+			Page.state.set 1, identifier
+		getNeighbourIds: (id) ->
+			foundMain = foundNext = false
+			last = left = right = undefined
+			Plugin.users.iterate (user) !->
+				return if foundNext
+				if foundMain and Db.shared.isHash(roundId, "selfies", user.key())
+					right = user.key()
+					foundNext = true
+				if (foundMain = (user.key()+"") is (id+"") || foundMain)
+					left = last
+				if !foundMain and Db.shared.isHash(roundId, "selfies", user.key())
+					last = user.key()
+			left = last
+			left = undefined if !Db.shared.isHash(roundId, "selfies", left)
+			right = undefined if !Db.shared.isHash(roundId, "selfies", right)
+			[left,right]
+		idToPhotoKey: (id) ->
+			Db.shared.get(roundId, "selfies", id, "key")
 
 
 
