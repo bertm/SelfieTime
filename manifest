@@ -1,5 +1,4 @@
-name: Selfie Time
-description: What's everybody doing right now? Selfies please!
-icon: person4
-store: 600
+name: Snappening
+description: What's everybody doing right now? Aw snap!
+icon: eye
 api: 2
