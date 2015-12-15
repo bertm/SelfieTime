@@ -38,7 +38,7 @@ exports.render = ->
 
 renderNew = !->
 	Dom.section !->
-		Dom.h3 tr "Start Selfie Time"
+		Dom.h3 tr "Start Snap"
 		Dom.div !->
 			Dom.style Box: 'middle'
 			inpE = null
@@ -51,32 +51,15 @@ renderNew = !->
 				newTitle = inpE.value().trim()
 				Modal.confirm tr("Start a new round?"), !->
 					if newTitle
-						Dom.text tr("All members will be asked to submit a “%1”-themed selfie", newTitle)
+						Dom.text tr("All members will be asked to submit a “%1”-themed snap", newTitle)
 					else
-						Dom.text tr("All members will be asked to submit a selfie")
+						Dom.text tr("All members will be asked to submit a snap")
 				, !->
 					if newTitle
 						newTitle = newTitle[0].toUpperCase() + newTitle.substr(1)
 					Event.subscribe [(Db.shared.get('maxId')||0)+1]
 					Server.call 'newRound', newTitle
 					inpE.value ''
-		if Db.shared.get('next') is 1
-			Dom.div !->
-				Dom.style
-					backgroundColor: '#ddd'
-					color: '#888'
-					fontWeight: 'bold'
-					fontSize: '85%'
-					borderRadius: '2px'
-					padding: '6px'
-				Dom.text tr("Automatic selfie time on pause, start a new round to resume!")
-		#if next = Db.shared.get('next')
-		#	Dom.div !->
-		#		Dom.style textAlign: 'right', color: '#666'
-		#		Dom.text tr "Automatic selfie time "
-		#		Time.deltaText next
-		#		Dom.text "..."
-
 
 renderList = !->
 
@@ -155,11 +138,11 @@ Obs.observe !->
 
 
 selfieTitle = (round) ->
-	round.get('title') || Db.shared.get('title') || Plugin.title() || tr("Selfie Time!")
+	round.get('title') || Db.shared.get('title') || Plugin.title() || tr("It's snappening!")
 
 
 renderRound = (roundId, preview) !->
-	Page.setTitle tr("Selfie round")
+	Page.setTitle tr("Snap round")
 
 	round = Db.shared.ref(roundId)
 	if !round.isHash()
@@ -222,7 +205,7 @@ renderRound = (roundId, preview) !->
 					Ui.bigButton !->
 						Dom.div !->
 							Dom.style fontSize: '180%', textAlign: 'center', padding: '4px'
-							Dom.text tr("Take a selfie")
+							Dom.text tr("Take a snap")
 					, !->
 						Event.subscribe [roundId]
 						Photo.pick 'camera'
@@ -230,7 +213,7 @@ renderRound = (roundId, preview) !->
 				if empty
 					Ui.emptyText tr "Be the first!"
 				else
-					Ui.emptyText tr "Take one yourself to see selfies by:"
+					Ui.emptyText tr "Take one yourself to see snaps by:"
 					round.observeEach 'selfies', (selfie) !->
 						Ui.avatar Plugin.userAvatar(selfie.key()),
 							style: display: 'inline-block', verticalAlign: 'middle', marginBottom: '4px'
@@ -238,7 +221,7 @@ renderRound = (roundId, preview) !->
 					Event.renderBubble [round.key()]
 
 		else if !open and empty
-			Ui.emptyText tr "No selfies submitted. Booh!"
+			Ui.emptyText tr "No snaps submitted. Booh!"
 
 		if open and meDone and preview and !empty
 			Dom.onTap !-> Page.nav [roundId]
@@ -261,7 +244,7 @@ renderRound = (roundId, preview) !->
 				Dom.text tr("Round started by %1", Plugin.userName(byUserId))
 
 	if !preview
-		Event.showStar tr("this selfie round")
+		Event.showStar tr("this round")
 		Dom.div !->
 			Dom.style margin: '12px -8px 0 -8px'
 			Social.renderComments
@@ -316,7 +299,7 @@ renderSelfies = (roundId,open,preview) !->
 								id: 'p'+photo.key()
 								userId: photo.get('userId')
 								noExpand: true
-								aboutWhat: tr("selfie")
+								aboutWhat: tr("snap")
 								color: '#fff'
 
 						Ui.avatar Plugin.userAvatar(photo.get('userId')),
@@ -347,32 +330,10 @@ renderPhoto = (roundId, userId) !->
 		content: (identifier) !->
 			photo = Db.shared.ref roundId, 'selfies', identifier
 			byUserId = photo.get('userId')
-			opts = []
 			if byUserId is Plugin.userId()
-				Page.setTitle tr("Your selfie")
-				if Photo.share
-					opts.push
-						label: tr('Share')
-						icon: 'share'
-						action: !-> Photo.share photo.peek('key')
-				if Photo.download
-					opts.push
-						label: tr('Download')
-						icon: 'boxdown'
-						action: !-> Photo.download photo.peek('key')
+				Page.setTitle tr("Your snap")
 			else
-				Page.setTitle tr("Selfie by %1", Plugin.userName(byUserId))
-
-			if byUserId is Plugin.userId() or Plugin.userIsAdmin()
-				opts.push
-					label: tr('Remove')
-					icon: 'trash'
-					action: !->
-						Modal.confirm null, tr("Remove photo?"), !->
-							Server.sync 'remove', roundId, identifier, !->
-								Db.shared.remove(roundId, 'selfies', identifier)
-							Page.back()
-			Page.setActions opts
+				Page.setTitle tr("Snap by %1", Plugin.userName(byUserId))
 			Page.state.set 1, identifier
 		getNeighbourIds: (id) ->
 			foundMain = foundNext = false
@@ -448,59 +409,6 @@ exports.renderSettings = !->
 					text: tr("Optional theme")
 
 		Form.sep()
-		Form.box !->
-			repeat = Db.shared?.get('repeat') ? 3
-
-			getRepeatText = (r) ->
-				if r is 0
-					tr("Disabled")
-				else if r is 1
-					tr("Daily")
-				else if r is 7
-					tr("Weekly")
-				else
-					tr("Every %1 days", r)
-
-			Dom.text tr("Automatic Selfie Time")
-			[handleChange] = Form.makeInput
-				name: 'repeat'
-				value: repeat
-				content: (value) !->
-					Dom.div !->
-						Dom.text getRepeatText(value)
-
-			Dom.onTap !->
-				Modal.show tr("Automatic Selfie Time"), !->
-					Dom.style width: '60%'
-					opts = [1, 3, 7, 0]
-					Dom.div !->
-						Dom.style
-							maxHeight: '45.5%'
-							backgroundColor: '#eee'
-							margin: '-12px'
-						Dom.overflow()
-						for rep in opts then do (rep) !->
-							Ui.item !->
-								Dom.text getRepeatText(rep)
-								if repeat is rep
-									Dom.style fontWeight: 'bold'
-
-									Dom.div !->
-										Dom.style
-											Flex: 1
-											padding: '0 10px'
-											textAlign: 'right'
-											fontSize: '150%'
-											color: Plugin.colors().highlight
-										Dom.text "✓"
-								Dom.onTap !->
-									handleChange rep
-									repeat = rep
-									Modal.remove()
-
-		Form.sep()
-
-
 		Dom.div !->
 			Dom.style Box: "inline middle", margin: '0 8px 0 8px'
 			Dom.div !->

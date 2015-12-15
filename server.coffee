@@ -7,94 +7,19 @@ Timer = require 'timer'
 exports.getTitle = -> # we're asking for _title in renderSettings
 
 exports.onUpgrade = !->
-	# no next, but repeat is set? schedule new round..
-	#if !Db.shared.get('next')? and (repeat = Db.shared.get('repeat'))>0
-	#	scheduleNewRound repeat
+	# fix non-initialized Snappening plugins
+	if !Db.shared.get('maxId')? and !Db.shared.get('deadline')?
+		exports.onInstall()
 
-	#if (open = Db.shared.get(1, 'open'))
-	#	time = 0|(Date.now()*.001)
-	#	if open < time
-	#		Db.shared.remove 1, 'open'
+exports.onInstall = !->
+    Db.shared.set 'maxId', 0
+    Db.shared.set 'deadline', 120
 
-	# fix non-initialized selfie-time plugins
-	#if !Db.shared.get('maxId')? and !Db.shared.get('repeat')? and !Db.shared.get('deadline')?
-	#	exports.onInstall()
-
-oldUpgrade = !->
-	# old data? upgrade!
-	if (selfies = Db.shared.get('selfies'))?
-		# comment muting (backend datastore)
-		if (comments = Db.backend.get('comments', 'default'))?
-			Db.backend.set 'comments', 'r1', comments
-			Db.backend.remove 'comments', 'default'
-
-		# comments and likes
-		if (comments = Db.shared.get('comments', 'default'))?
-			Db.shared.set 'comments', 'r1', comments
-			Db.shared.remove 'comments', 'default'
-
-		if (likes = Db.shared.get('likes'))?
-			for id, like of likes
-				[dum, nr] = id.split('-')
-				Db.shared.set 'likes', 'r1-'+nr, like
-				Db.shared.remove 'likes', id
-
-		# now all personal stuff as well
-		for uid in Plugin.userIds()
-			if (commentNr = Db.personal(uid).get('comments', 'default'))?
-				Db.personal(uid).set 'comments', 'r1', commentNr
-				Db.personal(uid).remove 'comments', 'default'
-
-			if (likes = Db.personal(uid).get('likes'))?
-				for id, seenTime of likes
-					[dum, nr] = id.split('-')
-					Db.personal(uid).set 'likes', 'r1-'+nr, seenTime
-					Db.personal(uid).remove 'likes', id
-					
-		# selfies / time / open
-		Db.shared.set 'maxId', 1
-		Db.shared.set 'repeat', 0
-		Db.shared.set 1, 'selfies', selfies
-		if (time = Db.shared.get('time'))?
-			Db.shared.set 1, 'time', time
-		if (open = Db.shared.get('open'))?
-			Db.shared.set 1, 'open', open
-
-		Db.shared.remove 'selfies'
-		Db.shared.remove 'time'
-		Db.shared.remove 'open'
-
-exports.onInstall = exports.onConfig = (_config) !->
+exports.onConfig = (_config) !->
 	config = _config || {}
 
-	# write default deadline and repetition freq
+	# write default deadline
 	Db.shared.set 'deadline', (Math.min(480, config.deadline||120))
-		# max 8 hour deadline (don't interfere with daily repeat setting)
-	newRepeat = (config.repeat ? 3)
-	oldRepeat = Db.shared.get 'repeat'
-	Db.shared.set 'repeat', newRepeat
-	if newRepeat is 0
-		log 'repeat never, cancelling newRound timer'
-		Timer.cancel 'newRound'
-	else if !oldRepeat? or oldRepeat > newRepeat or oldRepeat is 0
-		# this also schedules a new round when added through a template
-		scheduleNewRound newRepeat
-
-	if !Db.shared.get('maxId') and _config
-		newRound() # initial round fir manual group app addition
-
-scheduleNewRound = (repeat) !->
-	return if !repeat
-
-	dayStart = (Math.floor(Plugin.time()/86400) + repeat) * 86400 + ((new Date).getTimezoneOffset() * 60)
-	Timer.cancel 'newRound'
-	t = 0|(dayStart + (10*3600) + Math.floor(Math.random()*(12*3600)))
-	Db.shared.set 'next', t
-	if (t - Plugin.time()) > 3600
-		Timer.set (t-Plugin.time())*1000, 'newRound'
-		log 'new round scheduled', t
-	else
-		log 'next round too soon', t, Plugin.time()
 
 exports.client_newRound = exports.newRound = newRound = (title) !->
 	# close current round (closes comments)
@@ -105,7 +30,7 @@ exports.client_newRound = exports.newRound = newRound = (title) !->
 	log 'newRound', maxId
 
 	time = 0|(Date.now()*.001)
-	open = (Db.shared.get('deadline')||120)*60
+	open = (Db.shared.get('deadline'))*60
 
 	roundObj =
 		time: time+open
@@ -123,19 +48,8 @@ exports.client_newRound = exports.newRound = newRound = (title) !->
 		# notice how 'open' is *not* an absolute time! (contrary to what's in the data model)
 
 	Event.create
-		text: "Selfie deadline in #{open/60} minutes!"
+		text: "Take a snap within #{open/60} minutes!"
 		sender: Plugin.userId()
-
-	# no new round when this is automatic, and the last two had no submissions...
-	if !title? and maxId>2
-		r1 = Object.keys(Db.shared.get(maxId-1, 'selfies')).length
-		r2 = Object.keys(Db.shared.get(maxId-2, 'selfies')).length
-		if !r1 and !r2
-			Db.shared.set 'next', 1 # shows selfie time auto-paused
-			return
-
-	scheduleNewRound (Db.shared.get('repeat') ? 3)
-
 
 exports.check = !->
 	round = Db.shared.ref (Db.shared.get 'maxId')
@@ -147,7 +61,7 @@ exports.check = !->
 	if f.length
 		Event.create
 			for: f
-			text: "Selfie reminder!"
+			text: "Snap reminder!"
 
 exports.close = !->
 	log 'close'
@@ -160,7 +74,7 @@ exports.onPhoto = (info) !->
 	round = Db.shared.ref maxId
 	round.set 'selfies', Plugin.userId(), info
 	Event.create
-		text: "Selfie by #{Plugin.userName()}"
+		text: "Snap by #{Plugin.userName()}"
 		sender: Plugin.userId()
 
 exports.client_remove = (roundId, userId) !->
